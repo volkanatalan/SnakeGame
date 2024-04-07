@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>Snake Game</title>
+</head>
+
+<body>
+	<div id="content">
+		<span id="score">Score: 0</span>
+		<div id="canvasContainer">
+			<canvas id="canvas"></canvas>
+		</div>
+		<div id="gameOverPanel">
+			<span id="replayButton" onclick="replay()">Replay</span>
+		</div>
+	</div>
+	<script>
+		const Direction = { LEFT: 0, UP: 1, RIGHT: 2, BOTTOM: 3 }
+		const Coordinate = { X: 0, Y: 1 }
+
+		const bgcolor = "#e2e2e2"; // gray
+		const snakeColor = "#ff4301"; // orange
+		const snakeHeadColor = "#000"; // black
+		const foodColor = "#ff0000"; // red
+
+		const gridXLength = 20
+		const gridYLength = 20
+		let snakeCoordinates = [
+			[10, 10],
+			[10, 9],
+			[10, 8],
+		]
+		let foodCoordinate = generateFoodCoordinate()
+		let score = 0
+
+		let snakeDirection = 3
+		let snakeNextDirection = 3
+		let intervalMs = 100
+		const minIntervalMs = 30
+
+		let cellSize;
+		let ctx;
+		let gameInterval;
+		let snakeGradient = generateGradientArray(snakeHeadColor, snakeColor, snakeCoordinates.length)
+
+		window.onload = () => {
+			const canvasContainer = document.getElementById('canvasContainer')
+			cellSize = Math.min(canvasContainer.offsetWidth / gridXLength, canvasContainer.offsetHeight / gridYLength)
+
+			const canvas = document.getElementById("canvas");
+			canvas.width = gridXLength * cellSize;
+			canvas.height = gridYLength * cellSize;
+			ctx = canvas.getContext("2d");
+
+			onkeydown = d => {
+				switch (d.keyCode) {
+					case 37:
+						if (snakeDirection != Direction.RIGHT)
+							snakeNextDirection = Direction.LEFT
+						break
+					case 38:
+						if (snakeDirection != Direction.BOTTOM)
+							snakeNextDirection = Direction.UP
+						break
+					case 39:
+						if (snakeDirection != Direction.LEFT)
+							snakeNextDirection = Direction.RIGHT
+						break
+					case 40:
+						if (snakeDirection != Direction.UP)
+							snakeNextDirection = Direction.BOTTOM
+						break
+				}
+			};
+
+			gameInterval = setInterval(() => {
+				draw()
+			}, intervalMs);
+		}
+
+
+		function draw() {
+			snakeDirection = snakeNextDirection
+			moveSnake()
+
+			ctx.fillStyle = bgcolor;
+			ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+			drawFood()
+			drawSnake()
+		}
+
+		function drawSnake() {
+			for (let i = snakeCoordinates.length - 1; i >= 0; i--) {
+				const coord = snakeCoordinates[i];
+				ctx.fillStyle = snakeGradient[i]
+				ctx.fillRect(coord[Coordinate.X] * cellSize, coord[Coordinate.Y] * cellSize, cellSize, cellSize);
+			}
+		}
+
+		function rgbToHex(r, g, b) {
+			function componentToHex(c) {
+				var hex = c.toString(16);
+				return hex.length == 1 ? "0" + hex : hex;
+			}
+			return "#" + componentToHex(r) + componentToHex(g) + componentToHex(b);
+		}
+
+		function hexToRgb(hex) {
+			var shorthandRegex = /^#?([a-f\d])([a-f\d])([a-f\d])$/i;
+			hex = hex.replace(shorthandRegex, function (m, r, g, b) {
+				return r + r + g + g + b + b;
+			});
+
+			var result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+			return result ? {
+				r: parseInt(result[1], 16),
+				g: parseInt(result[2], 16),
+				b: parseInt(result[3], 16)
+			} : null;
+		}
+
+		function generateGradientArray(startColor, endColor, length) {
+			const color1RGB = hexToRgb(startColor)
+			const color2RGB = hexToRgb(endColor)
+			const array = []
+			for (let i = 0; i < length; i++) {
+				if (i === 0) {
+					array.push(startColor)
+				}
+				else if (i === length - 1) {
+					array.push(endColor)
+				} else {
+					const r = color1RGB?.r - Math.round(((color1RGB?.r - color2RGB?.r) / length * i))
+					const g = color1RGB?.g - Math.round(((color1RGB?.g - color2RGB?.g) / length * i))
+					const b = color1RGB?.b - Math.round(((color1RGB?.b - color2RGB?.b) / length * i))
+					array.push(rgbToHex(r, g, b))
+				}
+			}
+			return array
+		}
+
+		function drawFood() {
+			ctx.fillStyle = foodColor;
+			ctx.fillRect(foodCoordinate[Coordinate.X] * cellSize, foodCoordinate[Coordinate.Y] * cellSize, cellSize, cellSize);
+		}
+
+		function isCoordinateOnSnake(coordinate, headExcluded = false) {
+			for (let i = 0; i < snakeCoordinates.length; i++) {
+				if (headExcluded && i === 0) continue
+
+				const snakeCoordinate = snakeCoordinates[i]
+				if (snakeCoordinate[Coordinate.X] === coordinate[Coordinate.X] && snakeCoordinate[Coordinate.Y] === coordinate[Coordinate.Y]) {
+					return true
+				}
+			}
+			return false
+		}
+
+		function generateFoodCoordinate() {
+			const coordinate = [Math.floor(Math.random() * gridXLength), Math.floor(Math.random() * gridYLength)]
+			if (isCoordinateOnSnake(coordinate)) {
+				return generateFoodCoordinate()
+			}
+			return coordinate
+		}
+
+		function moveSnake() {
+			const newCoordinate = [...snakeCoordinates[0]]
+			switch (snakeDirection) {
+				case Direction.LEFT:
+					newCoordinate[Coordinate.X]--
+					newCoordinate[Coordinate.X] = newCoordinate[Coordinate.X] < 0 ? gridXLength - 1 : newCoordinate[Coordinate.X]
+					break;
+				case Direction.UP:
+					newCoordinate[Coordinate.Y]--
+					newCoordinate[Coordinate.Y] = newCoordinate[Coordinate.Y] < 0 ? gridYLength - 1 : newCoordinate[Coordinate.Y]
+					break;
+				case Direction.RIGHT:
+					newCoordinate[Coordinate.X]++
+					newCoordinate[Coordinate.X] = newCoordinate[Coordinate.X] >= gridXLength ? 0 : newCoordinate[Coordinate.X]
+					break;
+				case Direction.BOTTOM:
+					newCoordinate[Coordinate.Y]++
+					newCoordinate[Coordinate.Y] = newCoordinate[Coordinate.Y] >= gridYLength ? 0 : newCoordinate[Coordinate.Y]
+					break;
+			}
+			snakeCoordinates.unshift(newCoordinate)
+
+			const didSnakeEatFood = newCoordinate[Coordinate.X] === foodCoordinate[Coordinate.X] && newCoordinate[Coordinate.Y] === foodCoordinate[Coordinate.Y]
+			if (didSnakeEatFood) {
+				score++
+				updateScoreText()
+				foodCoordinate = generateFoodCoordinate()
+				snakeGradient = generateGradientArray(snakeHeadColor, snakeColor, snakeCoordinates.length)
+				if (score % 10 === 0) {
+					increaseSpeed()
+				}
+			} else {
+				snakeCoordinates.pop()
+			}
+
+			if (isCoordinateOnSnake(snakeCoordinates[0], true)) {
+				gameOver()
+			}
+		}
+
+		function increaseSpeed() {
+			intervalMs -= 10
+			intervalMs = intervalMs < minIntervalMs ? minIntervalMs : intervalMs
+			clearInterval(gameInterval)
+			gameInterval = setInterval(() => {
+				draw()
+			}, intervalMs);
+		}
+
+		function updateScoreText() {
+			document.getElementById('score').innerText = "Score: " + score
+		}
+
+		function gameOver() {
+			clearInterval(gameInterval)
+			document.getElementById('gameOverPanel').style.display = 'flex'
+		}
+
+		function replay() {
+			snakeDirection = 3
+			snakeNextDirection = 3
+			intervalMs = 100
+			score = 0
+			updateScoreText()
+			snakeCoordinates = [
+				[10, 10],
+				[10, 9],
+				[10, 8],
+			]
+			snakeGradient = generateGradientArray(snakeHeadColor, snakeColor, snakeCoordinates.length)
+			foodCoordinate = generateFoodCoordinate()
+			document.getElementById('gameOverPanel').style.display = 'none'
+			gameInterval = setInterval(() => {
+				draw()
+			}, intervalMs);
+		}
+	</script>
+</body>
+
+<style>
+	* {
+		margin: 0;
+		padding: 0;
+		box-sizing: border-box;
+	}
+
+	html,
+	body {
+		height: 100%;
+		overflow: hidden;
+	}
+
+	#content {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		height: 100%;
+	}
+
+	#canvasContainer {
+		flex: 1;
+		align-self: stretch;
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+	}
+
+	#gameOverPanel {
+		position: absolute;
+		left: 0;
+		right: 0;
+		top: 0;
+		bottom: 0;
+		display: none;
+		flex-direction: column;
+		align-items: center;
+		justify-content: center;
+		background-color: #ff000050;
+	}
+
+	#replayButton {
+		padding: 10px;
+		border-radius: 10px;
+		background-color: antiquewhite;
+		cursor: pointer;
+		user-select: none;
+	}
+</style>
+
+</html>
